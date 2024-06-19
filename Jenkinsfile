@@ -1,8 +1,7 @@
 pipeline {
     agent any
-
     environment {
-	PATH = "${env.PATH};C:\\Windows\\System32"
+        PATH = "${env.PATH};C:\\Windows\\System32"
         DOCKER_CREDENTIALS_ID = 'dockerhub-credentials'
     }
 
@@ -14,27 +13,22 @@ pipeline {
         }
         stage('Build') {
             steps {
-                script {
-
-                    dockerImage = docker.build("davidmihart69969/worldofgames")
+                script {           
+                    bat 'docker build -t davidmihart69969/worldofgames .'
                 }
             }
         }
         stage('Run') {
             steps {
                 script {
-
-                    app = dockerImage.run('-p 8777:8777 -v $WORKSPACE/Scores.txt:/app/Scores.txt')
+                    bat 'docker run -d -p 8777:8777 -v %WORKSPACE%\\Scores.txt:/app/Scores.txt --name worldofgames davidmihart69969/worldofgames'
                 }
             }
         }
         stage('Test') {
             steps {
                 script {
-
-                    def result = app.inside {
-                        sh 'python tests/e2e.py'
-                    }
+                    def result = bat(script: 'docker exec worldofgames python tests/e2e.py', returnStatus: true)
                     if (result != 0) {
                         error "Tests failed"
                     }
@@ -44,11 +38,11 @@ pipeline {
         stage('Finalize') {
             steps {
                 script {
-
-                    app.stop()
-
-                    docker.withRegistry('', DOCKER_CREDENTIALS_ID) {
-                        dockerImage.push("latest")
+                    bat 'docker stop worldofgames'
+                    bat 'docker rm worldofgames'
+                    withCredentials([usernamePassword(credentialsId: DOCKER_CREDENTIALS_ID, passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
+                        bat 'docker login -u %DOCKER_USERNAME% -p %DOCKER_PASSWORD%'
+                        bat 'docker push davidmihart69969/worldofgames:latest' // Change made here
                     }
                 }
             }
@@ -57,9 +51,7 @@ pipeline {
 
     post {
         always {
-
             cleanWs()
         }
     }
 }
-
