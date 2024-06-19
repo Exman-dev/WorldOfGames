@@ -2,6 +2,7 @@ pipeline {
     agent any
 
     environment {
+	PATH = "${env.PATH};C:\\Windows\\System32"
         DOCKER_CREDENTIALS_ID = 'dockerhub-credentials'
     }
 
