@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    environment {
+        DOCKER_CREDENTIALS_ID = 'dockerhub-credentials'
+    }
+
     stages {
         stage('Checkout') {
             steps {
@@ -10,6 +14,7 @@ pipeline {
         stage('Build') {
             steps {
                 script {
+
                     dockerImage = docker.build("davidmihart69969/worldofgames")
                 }
             }
@@ -17,14 +22,18 @@ pipeline {
         stage('Run') {
             steps {
                 script {
-                    app = dockerImage.run('-p 8777:8777 -v $PWD/Scores.txt:/app/Scores.txt')
+
+                    app = dockerImage.run('-p 8777:8777 -v $WORKSPACE/Scores.txt:/app/Scores.txt')
                 }
             }
         }
         stage('Test') {
             steps {
                 script {
-                    def result = sh(script: "python tests/e2e.py", returnStatus: true)
+
+                    def result = app.inside {
+                        sh 'python tests/e2e.py'
+                    }
                     if (result != 0) {
                         error "Tests failed"
                     }
@@ -34,17 +43,22 @@ pipeline {
         stage('Finalize') {
             steps {
                 script {
+
                     app.stop()
-                    docker.withRegistry('', 'dockerhub-credentials') {
+
+                    docker.withRegistry('', DOCKER_CREDENTIALS_ID) {
                         dockerImage.push("latest")
                     }
                 }
             }
         }
     }
+
     post {
         always {
+
             cleanWs()
         }
     }
 }
+
